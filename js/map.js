@@ -27,6 +27,10 @@ function toFeatures (data) {
       geometry: data.submission.data.geometry
     }]
   } else if (data.submission.step === 'bearing') {
+    if (!data.submission.data.distance || data.submission.data.distance > 1000) {
+      return
+    }
+
     var point = data.submission.data.geometry.geometries[0].coordinates
     var lineString = data.submission.data.geometry.geometries[1].coordinates
 
