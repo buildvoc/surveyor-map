@@ -11,6 +11,8 @@ var map = new mapboxgl.Map({
   zoom: 13
 })
 
+var itemsByUuid = {}
+
 var geojson = {
   type: 'FeatureCollection',
   features: []
@@ -67,6 +69,31 @@ function toFeatures (data) {
         }
       }
     ]
+  }
+}
+
+function createPopupFromItem (lngLat, item) {
+  var imageId = item.data.image_id
+
+  var html = '<a href="' + item.data.url + '">' + item.data.title + '</a><br />' +
+  '<img width="200px" src="https://images.nypl.org/index.php?id=' + imageId + '&t=w" />'
+
+  new mapboxgl.Popup()
+    .setLngLat(lngLat)
+    .setHTML(html)
+    .addTo(map)
+}
+
+function showPopup (event) {
+  var uuid = event.features[0].properties.uuid
+
+  if (itemsByUuid[uuid]) {
+    createPopupFromItem(event.lngLat, itemsByUuid[uuid])
+  } else {
+    d3.json(config.host + 'organizations/nypl/items/' + uuid, function (item) {
+      itemsByUuid[uuid] = item
+      createPopupFromItem(event.lngLat, item)
+    })
   }
 }
 
@@ -137,6 +164,22 @@ map.on('load', function () {
     geojson.features = geojson.features.concat(features)
     map.getSource('submissions').setData(geojson)
   })
+
+  map.on('click', 'points', showPopup)
+  map.on('click', 'fields-of-view.fill', showPopup)
+
+  function setPointer () {
+    map.getCanvas().style.cursor = 'pointer'
+  }
+
+  function resetPointer () {
+    map.getCanvas().style.cursor = ''
+  }
+
+  map.on('mouseenter', 'points', setPointer)
+  map.on('mouseenter', 'fields-of-view.fill', setPointer)
+  map.on('mouseleave', 'points', resetPointer)
+  map.on('mouseleave', 'fields-of-view.fill', resetPointer)
 })
 
 function getSubmissions () {
