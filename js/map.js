@@ -129,7 +129,7 @@ map.on('load', function () {
       return
     }
 
-    var features = toFeatures(data)
+    var features = toFeatures(data).filter(R.identity)
     geojson.features = geojson.features.concat(features)
     map.getSource('submissions').setData(geojson)
   })
@@ -158,7 +158,7 @@ function getSubmissions () {
     })
 
     var features = R.flatten(submissions).map(toFeatures)
-    geojson.features = R.flatten(features)
+    geojson.features = R.flatten(features).filter(R.identity)
     map.getSource('submissions').setData(geojson)
   })
 }
