@@ -1,0 +1,8 @@
+baseurl:
+exclude:
+  - CNAME
+  - README.md
+  - surveyor-map.log
+config:
+  taskId: geotag-photo
+  host: http://brick-by-brick.dev/
