@@ -4,6 +4,8 @@ mapboxgl.accessToken = 'pk.eyJ1IjoibnlwbGxhYnMiLCJhIjoiSFVmbFM0YyJ9.sl0CRaO71he1
 
 var color = 'rgb(245, 68, 28)'
 
+var dateModified = R.path(['submission', 'dateModified'])
+
 var map = new mapboxgl.Map({
   container: 'map',
   style: 'mapbox://styles/nypllabs/cj2gmix25005o2rpapartqm07',
@@ -11,26 +13,34 @@ var map = new mapboxgl.Map({
   zoom: 13
 })
 
-var itemsByUuid = {}
+var itemsById = {}
+var submissions = []
+var features = []
 
-var geojson = {
-  type: 'FeatureCollection',
-  features: []
+function geojson (features) {
+  return {
+    type: 'FeatureCollection',
+    features: features || []
+  }
+}
+
+function getProperties (data) {
+  return {
+    step: data.submission.step,
+    itemId: data.itemId
+  }
 }
 
 function toFeatures (data) {
   if (data.submission.step === 'location') {
     return [{
       type: 'Feature',
-      properties: {
-        step: data.submission.step,
-        uuid: data.item.id
-      },
+      properties: getProperties(data),
       geometry: data.submission.data.geometry
     }]
   } else if (data.submission.step === 'bearing') {
     if (!data.submission.data.distance || data.submission.data.distance > 1000) {
-      return
+      return []
     }
 
     var point = data.submission.data.geometry.geometries[0].coordinates
@@ -39,10 +49,7 @@ function toFeatures (data) {
     return [
       {
         type: 'Feature',
-        properties: {
-          step: data.submission.step,
-          uuid: data.item.id
-        },
+        properties: getProperties(data),
         geometry: {
           type: 'LineString',
           coordinates: [
@@ -54,10 +61,7 @@ function toFeatures (data) {
       },
       {
         type: 'Feature',
-        properties: {
-          step: data.submission.step,
-          uuid: data.item.id
-        },
+        properties: getProperties(data),
         geometry: {
           type: 'Polygon',
           coordinates: [[
@@ -70,13 +74,15 @@ function toFeatures (data) {
       }
     ]
   }
+
+  return []
 }
 
 function createPopupFromItem (lngLat, item) {
-  var imageId = item.data.image_id
+  var imageId = item.item.data.image_id
 
-  var html = '<a href="' + item.data.url + '">' + item.data.title + '</a><br />' +
-  '<img width="200px" src="https://images.nypl.org/index.php?id=' + imageId + '&t=w" />'
+  var html = '<a href="' + item.item.data.url + '"><span>' + item.item.data.title + '</span><br />' +
+    '<img width="100%" src="https://images.nypl.org/index.php?id=' + imageId + '&t=w" /></a>'
 
   new mapboxgl.Popup()
     .setLngLat(lngLat)
@@ -85,15 +91,14 @@ function createPopupFromItem (lngLat, item) {
 }
 
 function showPopup (event) {
-  var uuid = event.features[0].properties.uuid
+  // TODO: all event.features
+  // console.log('zvoveel', event.features.length)
 
-  if (itemsByUuid[uuid]) {
-    createPopupFromItem(event.lngLat, itemsByUuid[uuid])
-  } else {
-    d3.json(config.host + 'organizations/nypl/items/' + uuid, function (item) {
-      itemsByUuid[uuid] = item
-      createPopupFromItem(event.lngLat, item)
-    })
+  var itemId = event.features[0].properties.itemId
+  var item = itemsById[itemId]
+
+  if (item) {
+    createPopupFromItem(event.lngLat, item)
   }
 }
 
@@ -102,19 +107,17 @@ map.on('load', function () {
 
   map.addSource('submissions', {
     type: 'geojson',
-    data: geojson
+    data: geojson()
   })
 
   map.addLayer({
     id: 'points',
-    type: 'symbol',
+    type: 'circle',
     source: 'submissions',
-    layout: {
-      'icon-image': 'marker-15',
-      'icon-size': 2
-    },
     paint: {
-      'icon-color': color
+      'circle-color': color,
+      'circle-radius': 7,
+      'circle-opacity': 0.5
     },
     filter: ['==', 'step', 'location']
   })
@@ -156,13 +159,12 @@ map.on('load', function () {
   getSubmissions()
 
   socket.on('submission', function (data) {
-    if (!data || !data.submission || data.task.id !== config.taskId || data.submission.skipped) {
+    if (!data || data.task.id !== config.taskId) {
       return
     }
 
-    var features = toFeatures(data).filter(R.identity)
-    geojson.features = geojson.features.concat(features)
-    map.getSource('submissions').setData(geojson)
+    console.log('New submission!', data.item.id)
+    addSubmissions([data])
   })
 
   map.on('click', 'points', showPopup)
@@ -182,30 +184,80 @@ map.on('load', function () {
   map.on('mouseleave', 'fields-of-view.fill', resetPointer)
 })
 
-function getSubmissions () {
-  d3.json(config.host + 'tasks/' + config.taskId + '/submissions/all', function (json) {
-    var submissions = json.map(function (item) {
-      return item.submissions
-        .map(function (submission) {
-          return submission.steps.map(function (step) {
-            return {
-              submission: step,
-              organization: {
-                id: item.organization.id
-              },
-              item: {
-                id: item.item.id
-              },
-              task: {
-                id: item.task.id
-              }
+function getItemId (data) {
+  return data.organization.id + ':' + data.item.id
+}
+
+function storeItem (data) {
+  var id = getItemId(data)
+  itemsById[id] = {
+    item: data.item,
+    organization: data.organization
+  }
+}
+
+function addSubmissions (items) {
+  items.forEach(storeItem)
+
+  var newSubmissions = R.flatten(items.map(function (item) {
+    return item.submissions
+      .map(function (submission) {
+        return submission.steps.map(function (step) {
+          return {
+            submission: step,
+            itemId: getItemId(item),
+            task: {
+              id: item.task.id
             }
-          })
+          }
         })
+      })
+    }))
+    .filter(R.identity)
+    .sort(function (a, b) {
+      return new Date(dateModified(b)) - new Date(dateModified(a))
     })
 
-    var features = R.flatten(submissions).map(toFeatures)
-    geojson.features = R.flatten(features).filter(R.identity)
-    map.getSource('submissions').setData(geojson)
+  var newFeatures = R.flatten(newSubmissions.map(toFeatures)).filter(R.identity)
+  features = features.concat(newFeatures)
+
+  submissions = newSubmissions.concat(submissions)
+
+  updateList(submissions)
+  updateMap(features)
+}
+
+function updateMap (features) {
+  map.getSource('submissions').setData(geojson(features))
+}
+
+function updateList (submissions) {
+  var submission = d3.select('#submissions').selectAll('li')
+    .data(submissions, function (d) {
+      return d.itemId + ':' + dateModified(d)
+    })
+    .enter()
+    .append('li')
+
+  submission.append('h3')
+    .text(function (d) {
+      var item = itemsById[d.itemId]
+      if (item) {
+        return item.item.data.title
+      } else {
+        return ''
+      }
+    })
+
+  submission.append('span')
+    .text(function (d) {
+      var date = dateModified(d)
+      return moment(date).fromNow()
+    })
+}
+
+function getSubmissions () {
+  d3.json(config.host + 'tasks/' + config.taskId + '/submissions/all', function (json) {
+    addSubmissions(json)
   })
 }

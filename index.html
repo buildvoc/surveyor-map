@@ -9,14 +9,25 @@
   <script src="js/d3.v4.min.js"></script>
   <script src="js/ramda.min.js"></script>
   <script src="js/socket.io.js"></script>
+  <script src="js/moment.min.js"></script>
   <script src='https://api.tiles.mapbox.com/mapbox-gl-js/v0.38.0/mapbox-gl.js'></script>
   <link href='https://api.tiles.mapbox.com/mapbox-gl-js/v0.38.0/mapbox-gl.css' rel='stylesheet' />
   <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="css/fonts.css" />
 </head>
 <body>
-  <article>
-    <div id="map"></div>
-  </article>
+  <header>
+    <h1>Surveyor - Submissions Map</h1>
+    <input id="auto-pan" type="checkbox">
+  </header>
+  <main>
+    <aside>
+      <ol id="submissions">
+      </ol>
+    </aside>
+    <article id="map">
+    </article>
+  </main>
   <script>
     var config = {{ site.config | jsonify }}
   </script>
