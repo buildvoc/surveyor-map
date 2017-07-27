@@ -2,7 +2,10 @@ var socket = io(config.host)
 
 mapboxgl.accessToken = 'pk.eyJ1IjoibnlwbGxhYnMiLCJhIjoiSFVmbFM0YyJ9.sl0CRaO71he1XMf_362FZQ'
 
-var color = 'rgb(245, 68, 28)'
+var colors = {
+  location: 'rgb(3, 162, 255)',
+  bearing: 'rgb(245, 68, 28)'
+}
 
 var dateModified = R.path(['submission', 'dateModified'])
 
@@ -39,10 +42,6 @@ function toFeatures (data) {
       geometry: data.submission.data.geometry
     }]
   } else if (data.submission.step === 'bearing') {
-    if (!data.submission.data.distance || data.submission.data.distance > 1000) {
-      return []
-    }
-
     var point = data.submission.data.geometry.geometries[0].coordinates
     var lineString = data.submission.data.geometry.geometries[1].coordinates
 
@@ -102,6 +101,36 @@ function showPopup (event) {
   }
 }
 
+function panToSubmission (submission) {
+  if (submission.submission.step === 'location') {
+    var point = submission.submission.data.geometry
+    map.flyTo({
+      center: point.coordinates,
+      zoom: 17
+    })
+  } else if (submission.submission.step === 'bearing') {
+    var point = submission.submission.data.geometry.geometries[0].coordinates
+    var lineString = submission.submission.data.geometry.geometries[1].coordinates
+
+    var fieldOfView = {
+      type: 'LineString',
+      coordinates: [
+        lineString[0],
+        point,
+        lineString[1],
+      ]
+    }
+
+    var bounds = fieldOfView.coordinates.reduce(function (bounds, coord) {
+      return bounds.extend(coord)
+    }, new mapboxgl.LngLatBounds(fieldOfView.coordinates[0], fieldOfView.coordinates[0]))
+
+    map.fitBounds(bounds, {
+      padding: 150
+    })
+  }
+}
+
 map.on('load', function () {
   map.addControl(new mapboxgl.NavigationControl())
 
@@ -115,7 +144,7 @@ map.on('load', function () {
     type: 'circle',
     source: 'submissions',
     paint: {
-      'circle-color': color,
+      'circle-color': colors.location,
       'circle-radius': 7,
       'circle-opacity': 0.5
     },
@@ -127,7 +156,7 @@ map.on('load', function () {
     type: 'fill',
     source: 'submissions',
     paint: {
-      'fill-color': color,
+      'fill-color': colors.bearing,
       'fill-opacity': 0.5
     },
     filter: [
@@ -165,6 +194,10 @@ map.on('load', function () {
 
     console.log('New submission!', data.item.id)
     addSubmissions([data])
+
+    if (d3.select('#auto-pan').property('checked')) {
+      panToSubmission(itemsToSubmissions([data])[0])
+    }
   })
 
   map.on('click', 'points', showPopup)
@@ -196,10 +229,8 @@ function storeItem (data) {
   }
 }
 
-function addSubmissions (items) {
-  items.forEach(storeItem)
-
-  var newSubmissions = R.flatten(items.map(function (item) {
+function itemsToSubmissions (items) {
+  return R.flatten(items.map(function (item) {
     return item.submissions
       .map(function (submission) {
         return submission.steps.map(function (step) {
@@ -217,7 +248,21 @@ function addSubmissions (items) {
     .sort(function (a, b) {
       return new Date(dateModified(b)) - new Date(dateModified(a))
     })
+    .filter(function (data) {
+      if (data.submission.step === 'bearing') {
+        if (!data.submission.data.distance || data.submission.data.distance > 1000) {
+          return false
+        }
+      }
 
+      return true
+    })
+}
+
+function addSubmissions (items) {
+  items.forEach(storeItem)
+
+  var newSubmissions = itemsToSubmissions(items)
   var newFeatures = R.flatten(newSubmissions.map(toFeatures)).filter(R.identity)
   features = features.concat(newFeatures)
 
@@ -238,6 +283,12 @@ function updateList (submissions) {
     })
     .enter()
     .append('li')
+    .attr('class', function (d) {
+      return d.submission.step
+    })
+    .on('click', function (d) {
+      panToSubmission(d)
+    })
 
   submission.append('h3')
     .text(function (d) {
@@ -249,9 +300,20 @@ function updateList (submissions) {
       }
     })
 
+  submission.append('img')
+    .attr('src', function (d) {
+      return 'images/icons_' + d.submission.step + '.svg'
+    })
+
   submission.append('span')
     .text(function (d) {
+      var span = this
       var date = dateModified(d)
+
+      window.setInterval(function () {
+        d3.select(span).text(moment(date).fromNow())
+      }, 1000 * 60 )
+
       return moment(date).fromNow()
     })
 }

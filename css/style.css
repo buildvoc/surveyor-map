@@ -15,6 +15,9 @@ header {
   height: 60px;
   padding: 10px;
   box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
 header h1 {
@@ -46,6 +49,12 @@ aside ol li {
   margin: 0;
   padding: 5px 10px;
   box-sizing: border-box;
+  cursor: pointer;
+}
+
+aside ol li img {
+  height: 14px;
+  margin-right: 10px;
 }
 
 aside ol li h3 {
@@ -55,7 +64,11 @@ aside ol li h3 {
   text-overflow: ellipsis;
 }
 
-aside ol li:hover {
+aside ol li.location:hover {
+  background-color: rgba(3, 162, 255, 0.5);
+}
+
+aside ol li.bearing:hover {
   background-color: rgba(245, 68, 28, 0.5);
 }
 
