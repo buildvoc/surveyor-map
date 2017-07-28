@@ -157,7 +157,7 @@ map.on('load', function () {
     source: 'submissions',
     paint: {
       'fill-color': colors.bearing,
-      'fill-opacity': 0.5
+      'fill-opacity': 0.1
     },
     filter: [
       'all',
