@@ -194,6 +194,7 @@ function flyToSubmission (submission) {
 map.on('load', function () {
   map.on('moveend', function () {
     if (newPopup) {
+      removePopup()
       addPopup(newPopup)
       newPopup = undefined
     }
