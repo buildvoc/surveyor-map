@@ -309,13 +309,17 @@ function itemsToSubmissions (items) {
       return new Date(dateModified(b)) - new Date(dateModified(a))
     })
     .filter(function (data) {
-      if (data.submission.step === 'bearing') {
+      var step = data.submission.step
+      if (step === 'bearing') {
         if (!data.submission.data.distance || data.submission.data.distance > 1000) {
           return false
         }
+        return true
+      } else if (step === 'location') {
+        return true
       }
 
-      return true
+      return false
     })
 }
 
