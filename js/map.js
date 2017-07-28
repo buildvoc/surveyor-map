@@ -16,6 +16,9 @@ var map = new mapboxgl.Map({
   zoom: 13
 })
 
+var currentPopup
+var newPopup
+
 var itemsById = {}
 var submissions = []
 var features = []
@@ -77,37 +80,87 @@ function toFeatures (data) {
   return []
 }
 
-function createPopupFromItem (lngLat, item) {
+function setPopupContents (itemId) {
+  var contents = d3.select('#popup-contents')
+  var item = itemsById[itemId]
   var imageId = item.item.data.image_id
 
-  var html = '<a href="' + item.item.data.url + '"><span>' + item.item.data.title + '</span><br />' +
+  var html = '<a href="' + item.item.data.url + '"><div>' + item.item.data.title + '</div>' +
     '<img width="100%" src="https://images.nypl.org/index.php?id=' + imageId + '&t=w" /></a>'
 
-  new mapboxgl.Popup()
-    .setLngLat(lngLat)
-    .setHTML(html)
-    .addTo(map)
+  contents
+    .html(html)
 }
 
-function showPopup (event) {
-  // TODO: all event.features
-  // console.log('zvoveel', event.features.length)
+function setPopupLinksAndContents () {
+  var contents = d3.select('#popup-contents')
+  var itemId = contents.attr('data-item-id')
+  setPopupContents(itemId)
 
-  var itemId = event.features[0].properties.itemId
-  var item = itemsById[itemId]
+  d3.selectAll('#popup-items li a')
+    .on('click', function () {
+      var itemId = d3.select(this).attr('data-item-id')
+      setPopupContents(itemId)
+    })
+}
 
-  if (item) {
-    createPopupFromItem(event.lngLat, item)
+function createPopupFromItemIds (lngLat, itemIds) {
+  var itemList = ''
+  if (itemIds.length > 1) {
+    itemList = '<ol id="popup-items">' + itemIds.reduce(function (previous, itemId, index) {
+      return previous + '<li><a href="javascript:void(0);" data-item-id="' + itemId + '">' + (index + 1) + '</a></li>'
+    }, '') + '</ol>'
+  }
+
+  var html = itemList + '<div id="popup-contents" data-item-id="' + itemIds[0] + '">'
+
+  return new mapboxgl.Popup()
+    .setLngLat(lngLat)
+    .setHTML(html)
+}
+
+function removePopup () {
+  if (currentPopup) {
+    currentPopup.remove()
+    currentPopup = undefined
   }
 }
 
-function panToSubmission (submission) {
+function addPopup(popup) {
+  currentPopup = popup
+  if (map && popup) {
+    popup.addTo(map)
+    setPopupLinksAndContents()
+  }
+}
+
+function mapClick (event) {
+  if (!event || !event.features || !event.features.length) {
+    return
+  }
+
+  var itemIds = event.features
+    .map(function (feature) {
+      return feature.properties.itemId
+    })
+
+  removePopup()
+  if (itemIds.length) {
+    addPopup(createPopupFromItemIds(event.lngLat, itemIds))
+  }
+}
+
+function flyToSubmission (submission) {
+  removePopup()
+
   if (submission.submission.step === 'location') {
     var point = submission.submission.data.geometry
     map.flyTo({
       center: point.coordinates,
       zoom: 17
     })
+
+    newPopup = createPopupFromItemIds(point.coordinates, [submission.itemId])
   } else if (submission.submission.step === 'bearing') {
     var point = submission.submission.data.geometry.geometries[0].coordinates
     var lineString = submission.submission.data.geometry.geometries[1].coordinates
@@ -132,6 +185,13 @@ function panToSubmission (submission) {
 }
 
 map.on('load', function () {
+  map.on('moveend', function () {
+    if (newPopup) {
+      addPopup(newPopup)
+      newPopup = undefined
+    }
+  })
+
   map.addControl(new mapboxgl.NavigationControl())
 
   map.addSource('submissions', {
@@ -196,12 +256,12 @@ map.on('load', function () {
     addSubmissions([data])
 
     if (d3.select('#auto-pan').property('checked')) {
-      panToSubmission(itemsToSubmissions([data])[0])
+      flyToSubmission(itemsToSubmissions([data])[0])
     }
   })
 
-  map.on('click', 'points', showPopup)
-  map.on('click', 'fields-of-view.fill', showPopup)
+  map.on('click', 'points', mapClick)
+  map.on('click', 'fields-of-view.fill', mapClick)
 
   function setPointer () {
     map.getCanvas().style.cursor = 'pointer'
@@ -287,7 +347,7 @@ function updateList (submissions) {
       return d.submission.step
     })
     .on('click', function (d) {
-      panToSubmission(d)
+      flyToSubmission(d)
     })
 
   submission.append('h3')
