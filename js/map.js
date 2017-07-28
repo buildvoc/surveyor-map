@@ -152,6 +152,7 @@ function mapClick (event) {
 
 function flyToSubmission (submission) {
   removePopup()
+  var popupCoordinates
 
   if (submission.submission.step === 'location') {
     var point = submission.submission.data.geometry
@@ -160,7 +161,7 @@ function flyToSubmission (submission) {
       zoom: 17
     })
 
-    newPopup = createPopupFromItemIds(point.coordinates, [submission.itemId])
+    popupCoordinates = point.coordinates
   } else if (submission.submission.step === 'bearing') {
     var point = submission.submission.data.geometry.geometries[0].coordinates
     var lineString = submission.submission.data.geometry.geometries[1].coordinates
@@ -181,6 +182,12 @@ function flyToSubmission (submission) {
     map.fitBounds(bounds, {
       padding: 150
     })
+
+    popupCoordinates = bounds.getCenter()
+  }
+
+  if (popupCoordinates) {
+    newPopup = createPopupFromItemIds(popupCoordinates, [submission.itemId])
   }
 }
 
@@ -376,7 +383,7 @@ function updateList (submissions) {
 
       window.setInterval(function () {
         d3.select(span).text(moment(date).fromNow())
-      }, 1000 * 60 )
+      }, 1000 * 60)
 
       return moment(date).fromNow()
     })
