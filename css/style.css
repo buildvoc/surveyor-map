@@ -92,6 +92,21 @@ article {
   width: 100%;
 }
 
+#surveyor-link {
+  background-color: #d7da25;
+  border-style: solid;
+  border-color: #aaad1f;
+  padding: 5px 8px;
+  border-radius: 5px;
+  text-decoration: none;
+  transition: background-color 0.2s, border-color 0.2s;
+}
+
+#surveyor-link:hover {
+  background-color: #25dad2;
+  border-color: #169e98;
+}
+
 .mapboxgl-popup-content {
   width: 350px;
   padding: 10px;
