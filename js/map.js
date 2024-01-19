@@ -1,4 +1,6 @@
-var socket = io(config.host)
+var socket = io(config.host, {
+  withCredentials: true,
+})
 
 mapboxgl.accessToken = 'pk.eyJ1IjoibnlwbGxhYnMiLCJhIjoiSFVmbFM0YyJ9.sl0CRaO71he1XMf_362FZQ'
 
