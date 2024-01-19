@@ -12,7 +12,7 @@ var dateModified = R.path(['submission', 'dateModified'])
 var map = new mapboxgl.Map({
   container: 'map',
   style: 'mapbox://styles/nypllabs/cj2gmix25005o2rpapartqm07',
-  center: [-73.98579, 40.71571],
+  center: [-0.79892, 51.21498],
   zoom: 13
 })
 
@@ -85,8 +85,9 @@ function setPopupContents (itemId) {
   var item = itemsById[itemId]
   var imageId = item.item.data.image_id
 
-  var html = '<a href="' + item.item.data.url + '"><div>' + item.item.data.title + '</div>' +
-    '<img width="100%" src="https://images.nypl.org/index.php?id=' + imageId + '&t=w" /></a>'
+  console.log(item);
+  var html = '<a href="' + item.item.data.url + '" target="_blank"><div>' + item.item.data.title + '</div>' +
+    '<img width="100%" src="https://buildingshistory.co.uk/galleries/' + item.item.data.thumbnail_filename + '" /></a>'
 
   contents
     .html(html)

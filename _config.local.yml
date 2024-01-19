@@ -5,4 +5,4 @@ exclude:
   - surveyor-map.log
 config:
   taskId: geotag-photo
-  host: http://brick-by-brick.dev/
+  host: http://brick-by-brick.buildingshistory.co.uk/
